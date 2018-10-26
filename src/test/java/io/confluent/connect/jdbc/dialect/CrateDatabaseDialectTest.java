@@ -87,8 +87,8 @@ public class CrateDatabaseDialectTest extends BaseDialectTest<CrateDatabaseDiale
   public void shouldBuildCreateQueryStatement() {
     String expected =
         "CREATE TABLE \"myTable\" (\n" + "\"c1\" INTEGER NOT NULL,\n" + "\"c2\" LONG NOT NULL,\n" +
-        "\"c3\" STRING NOT NULL,\n" + "\"c4\" STRING,\n" + "\"c5\" TIMESTAMP DEFAULT '2001-03-15',\n" +
-        "\"c6\" TIMESTAMP DEFAULT '00:00:00.000',\n" +
+        "\"c3\" STRING NOT NULL,\n" + "\"c4\" STRING,\n" + "\"c5\" TIMESTAMP DEFAULT '2001-03-15 00:00:00.000',\n" +
+        "\"c6\" TIMESTAMP DEFAULT '2001-03-15 00:00:00.000',\n" +
         "\"c7\" TIMESTAMP DEFAULT '2001-03-15 00:00:00.000',\n" + "\"c8\" DOUBLE,\n" +
         "PRIMARY KEY(\"c1\"))";
     String sql = dialect.buildCreateTableStatement(tableId, sinkRecordFields);
@@ -101,8 +101,8 @@ public class CrateDatabaseDialectTest extends BaseDialectTest<CrateDatabaseDiale
     List<String> statements = dialect.buildAlterTable(tableId, sinkRecordFields);
     String[] sql = {"ALTER TABLE \"myTable\" \n" + "ADD \"c1\" INTEGER NOT NULL,\n" +
                     "ADD \"c2\" LONG NOT NULL,\n" + "ADD \"c3\" STRING NOT NULL,\n" +
-                    "ADD \"c4\" STRING,\n" + "ADD \"c5\" TIMESTAMP DEFAULT '2001-03-15',\n" +
-                    "ADD \"c6\" TIMESTAMP DEFAULT '00:00:00.000',\n" +
+                    "ADD \"c4\" STRING,\n" + "ADD \"c5\" TIMESTAMP DEFAULT '2001-03-15 00:00:00.000',\n" +
+                    "ADD \"c6\" TIMESTAMP DEFAULT '2001-03-15 00:00:00.000',\n" +
                     "ADD \"c7\" TIMESTAMP DEFAULT '2001-03-15 00:00:00.000',\n" +
                     "ADD \"c8\" DOUBLE"};
     assertStatements(sql, statements);

@@ -16,26 +16,31 @@
 
 package io.confluent.connect.jdbc.dialect;
 
+import io.confluent.connect.jdbc.util.ColumnId;
+import io.confluent.connect.jdbc.util.DateTimeUtils;
+import io.confluent.connect.jdbc.util.ExpressionBuilder;
+import io.confluent.connect.jdbc.util.IdentifierRules;
+import io.confluent.connect.jdbc.util.TableId;
 import org.apache.kafka.common.config.AbstractConfig;
-import org.apache.kafka.connect.data.Date;
-import org.apache.kafka.connect.data.Decimal;
-import org.apache.kafka.connect.data.Time;
-import org.apache.kafka.connect.data.Timestamp;
 
+import java.nio.ByteBuffer;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 
 import io.confluent.connect.jdbc.dialect.DatabaseDialectProvider.SubprotocolBasedProvider;
 import io.confluent.connect.jdbc.sink.metadata.SinkRecordField;
-import io.confluent.connect.jdbc.util.ColumnId;
-import io.confluent.connect.jdbc.util.ExpressionBuilder;
 import io.confluent.connect.jdbc.util.ExpressionBuilder.Transform;
-import io.confluent.connect.jdbc.util.IdentifierRules;
-import io.confluent.connect.jdbc.util.TableId;
+import org.apache.kafka.connect.data.Date;
+import org.apache.kafka.connect.data.Decimal;
+import org.apache.kafka.connect.data.Schema;
+import org.apache.kafka.connect.data.Time;
+import org.apache.kafka.connect.data.Timestamp;
+import org.apache.kafka.connect.errors.ConnectException;
 
 /**
  * A {@link DatabaseDialect} for Crate.
@@ -208,4 +213,59 @@ public class CrateDatabaseDialect extends GenericDatabaseDialect {
     }
   }
 
+  @Override
+  protected void formatColumnValue(
+      ExpressionBuilder builder,
+      String schemaName,
+      Map<String, String> schemaParameters,
+      Schema.Type type,
+      Object value
+  ) {
+    if (schemaName != null) {
+      switch (schemaName) {
+        case Decimal.LOGICAL_NAME:
+          builder.append(value);
+          return;
+        case Date.LOGICAL_NAME:
+        case Time.LOGICAL_NAME:
+        case org.apache.kafka.connect.data.Timestamp.LOGICAL_NAME:
+          builder.appendStringQuoted(DateTimeUtils.formatUtcTimestamp((java.util.Date) value));
+          return;
+        default:
+          // fall through to regular types
+          break;
+      }
+    }
+    switch (type) {
+      case INT8:
+      case INT16:
+      case INT32:
+      case INT64:
+      case FLOAT32:
+      case FLOAT64:
+        // no escaping required
+        builder.append(value);
+        break;
+      case BOOLEAN:
+        // 1 & 0 for boolean is more portable rather than TRUE/FALSE
+        builder.append((Boolean) value ? '1' : '0');
+        break;
+      case STRING:
+        builder.appendStringQuoted(value);
+        break;
+      case BYTES:
+        final byte[] bytes;
+        if (value instanceof ByteBuffer) {
+          final ByteBuffer buffer = ((ByteBuffer) value).slice();
+          bytes = new byte[buffer.remaining()];
+          buffer.get(bytes);
+        } else {
+          bytes = (byte[]) value;
+        }
+        builder.appendBinaryLiteral(bytes);
+        break;
+      default:
+        throw new ConnectException("Unsupported type for column value: " + type);
+    }
+  }
 }
