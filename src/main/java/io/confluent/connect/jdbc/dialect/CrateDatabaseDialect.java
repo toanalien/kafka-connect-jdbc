@@ -23,6 +23,7 @@ import io.confluent.connect.jdbc.util.IdentifierRules;
 import io.confluent.connect.jdbc.util.TableId;
 import org.apache.kafka.common.config.AbstractConfig;
 
+import java.math.BigDecimal;
 import java.nio.ByteBuffer;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -268,4 +269,33 @@ public class CrateDatabaseDialect extends GenericDatabaseDialect {
         throw new ConnectException("Unsupported type for column value: " + type);
     }
   }
+
+  @Override
+  protected boolean maybeBindLogical(
+          PreparedStatement statement,
+          int index,
+          Schema schema,
+          Object value
+  ) throws SQLException {
+    if (schema.name() != null) {
+      switch (schema.name()) {
+        case Decimal.LOGICAL_NAME:
+          statement.setBigDecimal(index, (BigDecimal) value);
+          return true;
+        case Date.LOGICAL_NAME:
+        case Time.LOGICAL_NAME:
+        case org.apache.kafka.connect.data.Timestamp.LOGICAL_NAME:
+          statement.setTimestamp(
+                  index,
+                  new java.sql.Timestamp(((java.util.Date) value).getTime()),
+                  DateTimeUtils.UTC_CALENDAR.get()
+          );
+          return true;
+        default:
+          return false;
+      }
+    }
+    return false;
+  }
+
 }

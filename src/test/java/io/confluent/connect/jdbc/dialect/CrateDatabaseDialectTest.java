@@ -14,12 +14,17 @@
 
 package io.confluent.connect.jdbc.dialect;
 
+import io.confluent.connect.jdbc.util.DateTimeUtils;
 import io.confluent.connect.jdbc.util.TableId;
 import org.apache.kafka.connect.data.*;
 import org.apache.kafka.connect.data.Schema.Type;
 import org.junit.Test;
 
+import java.math.BigDecimal;
+import java.nio.ByteBuffer;
+import java.sql.SQLException;
 import java.util.List;
+import java.util.concurrent.ThreadLocalRandom;
 
 import static org.junit.Assert.assertEquals;
 
@@ -110,12 +115,19 @@ public class CrateDatabaseDialectTest extends BaseDialectTest<CrateDatabaseDiale
 
   @Test
   public void shouldBuildUpsertStatement() {
-    String expected = "INSERT INTO \"myTable\" (\"id1\",\"id2\",\"columnA\",\"columnB\"," +
+    String expected1 = "INSERT INTO \"myTable\" (\"id1\",\"id2\",\"columnA\",\"columnB\"," +
                       "\"columnC\",\"columnD\") VALUES (?,?,?,?,?,?) ON CONFLICT (\"id1\"," +
                       "\"id2\") DO UPDATE SET \"columnA\"=\"columnA\",\"columnB\"=\"columnB\"," +
                       "\"columnC\"=\"columnC\",\"columnD\"=\"columnD\"";
-    String sql = dialect.buildUpsertQueryStatement(tableId, pkColumns, columnsAtoD);
-    assertEquals(expected, sql);
+    String sql1 = dialect.buildUpsertQueryStatement(tableId, pkColumns, columnsAtoD);
+    assertEquals(expected1, sql1);
+
+    String expected2 = "INSERT INTO \"myTable\" (\"id1\",\"id2\",\"columnE\",\"columnF\"," +
+            "\"columnG\") VALUES (?,?,?,?,?) ON CONFLICT (\"id1\"," +
+            "\"id2\") DO UPDATE SET \"columnE\"=\"columnE\",\"columnF\"=\"columnF\"," +
+            "\"columnG\"=\"columnG\"";
+    String sql2 = dialect.buildUpsertQueryStatement(tableId, pkColumns, columnsEtoG);
+    assertEquals(expected2, sql2);
   }
 
   @Test
@@ -161,4 +173,23 @@ public class CrateDatabaseDialectTest extends BaseDialectTest<CrateDatabaseDiale
                                                 columns(customer, "name", "salary", "address")));
   }
 
+  @Test
+  public void bindFieldPrimitiveValues() throws SQLException {
+    int index = ThreadLocalRandom.current().nextInt();
+    verifyBindField(++index, Schema.INT8_SCHEMA, (byte) 42).setByte(index, (byte) 42);
+    verifyBindField(++index, Schema.INT16_SCHEMA, (short) 42).setShort(index, (short) 42);
+    verifyBindField(++index, Schema.INT32_SCHEMA, 42).setInt(index, 42);
+    verifyBindField(++index, Schema.INT64_SCHEMA, 42L).setLong(index, 42L);
+    verifyBindField(++index, Schema.BOOLEAN_SCHEMA, false).setBoolean(index, false);
+    verifyBindField(++index, Schema.BOOLEAN_SCHEMA, true).setBoolean(index, true);
+    verifyBindField(++index, Schema.FLOAT32_SCHEMA, -42f).setFloat(index, -42f);
+    verifyBindField(++index, Schema.FLOAT64_SCHEMA, 42d).setDouble(index, 42d);
+    verifyBindField(++index, Schema.BYTES_SCHEMA, new byte[]{42}).setBytes(index, new byte[]{42});
+    verifyBindField(++index, Schema.BYTES_SCHEMA, ByteBuffer.wrap(new byte[]{42})).setBytes(index, new byte[]{42});
+    verifyBindField(++index, Schema.STRING_SCHEMA, "yep").setString(index, "yep");
+    verifyBindField(++index, Decimal.schema(0), new BigDecimal("1.5").setScale(0, BigDecimal.ROUND_HALF_EVEN)).setBigDecimal(index, new BigDecimal(2));
+    verifyBindField(++index, Date.SCHEMA, new java.util.Date(100)).setTimestamp(index, new java.sql.Timestamp(100), DateTimeUtils.UTC_CALENDAR.get());
+    verifyBindField(++index, Time.SCHEMA, new java.util.Date(100)).setTimestamp(index, new java.sql.Timestamp(100), DateTimeUtils.UTC_CALENDAR.get());
+    verifyBindField(++index, Timestamp.SCHEMA, new java.util.Date(100)).setTimestamp(index, new java.sql.Timestamp(100), DateTimeUtils.UTC_CALENDAR.get());
+  }
 }
